@@ -1,0 +1,1336 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="theme-color" content="#0f766e">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Equb Admin">
+  <title>Equb Admin – Secure Digital Organizer</title>
+  <link rel="manifest" href="manifest.json">
+  <link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
+  <link rel="apple-touch-icon" href="icon-192.png">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <script src="https://accounts.google.com/gsi/client" async defer></script>
+  <script src="https://apis.google.com/js/api.js" async defer></script>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Noto+Sans+Ethiopic:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --primary: #0f766e;
+      --primary-light: #14b8a6;
+      --bg: #f8fafc;
+      --card: #ffffff;
+      --text: #0f172a;
+      --muted: #64748b;
+      --border: #e2e8f0;
+    }
+    [data-theme="dark"] {
+      --primary: #2dd4bf;
+      --primary-light: #5eead4;
+      --bg: #0f172a;
+      --card: #1e293b;
+      --text: #f1f5f9;
+      --muted: #94a3b8;
+      --border: #334155;
+    }
+    [data-theme="blue"] { --primary: #2563eb; --primary-light: #3b82f6; }
+    [data-theme="purple"] { --primary: #7c3aed; --primary-light: #8b5cf6; }
+    [data-theme="rose"] { --primary: #e11d48; --primary-light: #f43f5e; }
+
+    * { -webkit-tap-highlight-color: transparent; box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: 'Inter', 'Noto Sans Ethiopic', system-ui, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+    }
+    .app { max-width: 480px; margin: 0 auto; min-height: 100vh; background: var(--bg); position: relative; padding-bottom: 80px; }
+    .screen { display: none; min-height: 100vh; }
+    .screen.active { display: block; }
+    .header {
+      background: linear-gradient(135deg, var(--primary), var(--primary-light));
+      color: white;
+      padding: 16px 20px 20px;
+      position: sticky; top: 0; z-index: 30;
+    }
+    .card {
+      background: var(--card);
+      border-radius: 16px;
+      border: 1px solid var(--border);
+      box-shadow: 0 1px 3px rgb(0 0 0 / 0.04);
+    }
+    .btn-primary {
+      background: linear-gradient(135deg, var(--primary), var(--primary-light));
+      color: white; font-weight: 600; border-radius: 12px;
+      padding: 12px 20px; border: none; cursor: pointer;
+      box-shadow: 0 4px 12px color-mix(in srgb, var(--primary) 30%, transparent);
+    }
+    .btn-primary:active { transform: scale(0.97); }
+    .btn-secondary {
+      background: var(--bg); color: var(--text); font-weight: 600;
+      border-radius: 12px; padding: 12px 20px; border: 1px solid var(--border); cursor: pointer;
+    }
+    .bottom-nav {
+      position: fixed; bottom: 0; left: 50%; transform: translateX(-50%);
+      width: 100%; max-width: 480px; height: 70px;
+      background: var(--card); border-top: 1px solid var(--border);
+      display: none; justify-content: space-around; align-items: center;
+      padding-bottom: 8px; z-index: 40;
+    }
+    .bottom-nav.show { display: flex; }
+    .nav-item {
+      display: flex; flex-direction: column; align-items: center; gap: 2px;
+      color: var(--muted); font-size: 11px; font-weight: 500;
+      cursor: pointer; padding: 6px 12px; border-radius: 12px;
+    }
+    .nav-item.active { color: var(--primary); background: color-mix(in srgb, var(--primary) 12%, transparent); }
+    .nav-item svg { width: 22px; height: 22px; }
+    .avatar {
+      width: 44px; height: 44px; border-radius: 14px;
+      background: linear-gradient(135deg, var(--primary), var(--primary-light));
+      color: white; display: flex; align-items: center; justify-content: center;
+      font-weight: 700; font-size: 15px; flex-shrink: 0;
+    }
+    .tick-btn {
+      width: 34px; height: 34px; border-radius: 50%;
+      border: 2px solid var(--border); background: var(--card);
+      display: flex; align-items: center; justify-content: center;
+      cursor: pointer; font-size: 14px; color: var(--text);
+    }
+    .tick-btn.paid { background: #10b981; border-color: #10b981; color: white; }
+    .member-row {
+      display: flex; align-items: center; padding: 14px 16px;
+      border-bottom: 1px solid var(--border); cursor: pointer;
+    }
+    .member-row:active { background: color-mix(in srgb, var(--primary) 6%, transparent); }
+    .stat-card { background: rgba(255,255,255,0.18); border-radius: 14px; padding: 10px; text-align: center; }
+    .modal-overlay {
+      position: fixed; inset: 0; background: rgba(15, 23, 42, 0.55);
+      backdrop-filter: blur(4px); z-index: 100;
+      display: none; align-items: flex-end; justify-content: center;
+    }
+    .modal-overlay.show { display: flex; }
+    .modal {
+      background: var(--card); color: var(--text);
+      border-radius: 24px 24px 0 0; width: 100%; max-width: 480px;
+      max-height: 85vh; padding: 20px 20px 32px;
+      animation: slideUp 0.3s ease; overflow-y: auto;
+    }
+    @keyframes slideUp { from { transform: translateY(100%); } to { transform: translateY(0); } }
+    .toast {
+      position: fixed; top: 20px; left: 50%; transform: translateX(-50%);
+      background: #0f172a; color: white; padding: 12px 20px;
+      border-radius: 12px; font-size: 14px; font-weight: 500;
+      z-index: 200; opacity: 0; transition: opacity 0.3s;
+      pointer-events: none; max-width: 90%; text-align: center;
+    }
+    .toast.show { opacity: 1; }
+    .cal-day {
+      aspect-ratio: 1; display: flex; flex-direction: column;
+      align-items: center; justify-content: center; border-radius: 12px;
+      font-size: 13px; font-weight: 500; cursor: pointer; position: relative;
+      color: var(--text);
+    }
+    .cal-day.today { background: var(--primary); color: white; font-weight: 700; }
+    .cal-day.has-event::after {
+      content: ''; width: 5px; height: 5px; background: #f59e0b;
+      border-radius: 50%; position: absolute; bottom: 3px;
+    }
+    .cal-day.today.has-event::after { background: #fde68a; }
+    .cal-day.other-month { color: var(--muted); opacity: 0.5; }
+    input, textarea, select { background: var(--card); color: var(--text); border: 1px solid var(--border); }
+    .theme-swatch {
+      width: 36px; height: 36px; border-radius: 50%; cursor: pointer;
+      border: 3px solid transparent; transition: all 0.2s;
+    }
+    .theme-swatch.active { border-color: var(--text); transform: scale(1.1); }
+    .login-btn {
+      display: flex; align-items: center; justify-content: center; gap: 12px;
+      background: white; color: #3c4043; border: 1px solid #dadce0;
+      border-radius: 12px; padding: 12px 24px; font-weight: 500;
+      cursor: pointer; box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+      width: 100%; max-width: 320px;
+    }
+    .login-btn:hover { background: #f8f9fa; }
+    .sync-status {
+      font-size: 11px; padding: 4px 10px; border-radius: 20px;
+      background: rgba(255,255,255,0.2);
+    }
+    .sync-status.synced { background: rgba(16,185,129,0.3); }
+  </style>
+</head>
+<body>
+  <div class="app" id="app">
+    <div class="toast" id="toast">Saved</div>
+
+    <!-- ==================== LOGIN SCREEN ==================== -->
+    <div class="screen active" id="screen-login">
+      <div class="header" style="padding-bottom: 40px; text-align: center;">
+        <div class="w-20 h-20 rounded-3xl bg-white/20 flex items-center justify-center mx-auto mb-4 text-4xl">💰</div>
+        <h1 class="text-2xl font-bold mb-1">Equb Admin</h1>
+        <p class="text-white/80 text-sm">Secure Digital Organizer for Ethiopian Equbs</p>
+      </div>
+      <div class="px-6 pt-8 flex flex-col items-center">
+        <p class="text-center text-sm mb-6" style="color:var(--muted)">
+          Login with Google to automatically backup your Equb data to your own Google Drive.<br>
+          Your data stays private in <b>your</b> account.
+        </p>
+        
+        <button class="login-btn mb-4" onclick="handleGoogleLogin()">
+          <svg width="20" height="20" viewBox="0 0 24 24"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/><path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/></svg>
+          Continue with Google
+        </button>
+
+        <button class="btn-secondary w-full max-w-xs mt-2" onclick="continueWithoutLogin()">
+          Continue Offline (Local only)
+        </button>
+
+        <p class="text-xs text-center mt-8" style="color:var(--muted)">
+          No server. No subscription.<br>
+          Data is stored either locally or in your personal Google Drive.
+        </p>
+      </div>
+    </div>
+
+    <!-- ==================== EQUB SELECTOR ==================== -->
+    <div class="screen" id="screen-selector">
+      <div class="header" style="padding-bottom: 28px;">
+        <div class="flex justify-between items-center">
+          <div>
+            <p class="text-white/80 text-sm" id="user-greeting">Welcome</p>
+            <h1 class="text-xl font-bold" id="user-name">User</h1>
+          </div>
+          <div class="flex items-center gap-2">
+            <span class="sync-status" id="sync-status">Local</span>
+            <div class="w-10 h-10 rounded-full bg-white/20 flex items-center justify-center font-bold text-sm overflow-hidden" id="user-avatar">U</div>
+          </div>
+        </div>
+        <p class="text-white/80 text-sm mt-3">Select an Equb to manage</p>
+      </div>
+
+      <div class="px-4 pt-4 space-y-3 pb-8" id="equb-list">
+        <!-- Dynamically filled -->
+      </div>
+      
+      <div class="px-4 pb-8">
+        <button class="btn-primary w-full py-4 flex items-center justify-center gap-2" onclick="showScreen('create')">
+          <svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M12 4v16m8-8H4"/></svg>
+          Create New Equb
+        </button>
+      </div>
+    </div>
+
+    <!-- ==================== EQUB HOME ==================== -->
+    <div class="screen" id="screen-equb-home">
+      <div class="header">
+        <div class="flex items-center gap-2 mb-3">
+          <button onclick="showScreen('selector')" class="w-9 h-9 rounded-full bg-white/20 flex items-center justify-center flex-shrink-0">
+            <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M15 19l-7-7 7-7"/></svg>
+          </button>
+          <div class="flex-1 bg-white/15 rounded-xl px-3 py-2 flex items-center gap-2 cursor-pointer" onclick="showScreen('selector')">
+            <div class="w-7 h-7 rounded-lg bg-white/30 flex items-center justify-center text-xs font-bold" id="equb-icon">M</div>
+            <div class="min-w-0 flex-1">
+              <p class="font-bold text-sm truncate" id="equb-name">Merkato Traders</p>
+              <p class="text-xs text-white/80 truncate" id="equb-meta">Weekly • 500 ETB</p>
+            </div>
+            <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M19 9l-7 7-7-7"/></svg>
+          </div>
+        </div>
+        <div class="grid grid-cols-3 gap-2">
+          <div class="stat-card">
+            <p class="text-lg font-bold" id="stat-cycle">7/12</p>
+            <p class="text-xs text-white/80">Cycle</p>
+          </div>
+          <div class="stat-card">
+            <p class="text-lg font-bold" id="stat-pots">6</p>
+            <p class="text-xs text-white/80">Pots Given</p>
+          </div>
+          <div class="stat-card">
+            <p class="text-lg font-bold" id="stat-paid">9/12</p>
+            <p class="text-xs text-white/80">Paid</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="px-4 pt-4 space-y-4">
+        <div class="grid grid-cols-2 gap-3">
+          <button class="card p-4 flex flex-col items-center gap-2 active:scale-95 transition" onclick="showLotteryModal()">
+            <div class="w-12 h-12 rounded-2xl flex items-center justify-center text-2xl" style="background:color-mix(in srgb,var(--primary) 15%,transparent)">🎲</div>
+            <span class="font-semibold text-sm" style="color:var(--text)">Draw Winner</span>
+          </button>
+          <button class="card p-4 flex flex-col items-center gap-2 active:scale-95 transition" onclick="showScreen('calendar')">
+            <div class="w-12 h-12 rounded-2xl flex items-center justify-center text-2xl" style="background:color-mix(in srgb,var(--primary) 15%,transparent)">📅</div>
+            <span class="font-semibold text-sm" style="color:var(--text)">Calendar</span>
+          </button>
+        </div>
+
+        <div class="card p-4">
+          <div class="flex justify-between items-center mb-3">
+            <h3 class="font-bold" style="color:var(--text)">Current Cycle Payments</h3>
+            <button class="text-sm font-semibold" style="color:var(--primary)" onclick="remindAllUnpaid()">Remind Unpaid</button>
+          </div>
+          <div class="space-y-1" id="quick-members"></div>
+          <button class="w-full mt-3 py-2.5 text-sm font-semibold" style="color:var(--primary)" onclick="showScreen('members')">View All Members →</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ==================== MEMBERS ==================== -->
+    <div class="screen" id="screen-members">
+      <div class="header">
+        <div class="flex items-center gap-3">
+          <button onclick="showScreen('equb-home')" class="w-9 h-9 rounded-full bg-white/20 flex items-center justify-center">
+            <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M15 19l-7-7 7-7"/></svg>
+          </button>
+          <div>
+            <h1 class="text-lg font-bold">Members</h1>
+            <p class="text-xs text-white/80" id="members-subtitle">12 members</p>
+          </div>
+        </div>
+      </div>
+      <div class="px-4 pt-3">
+        <div class="card overflow-hidden" id="full-members-list"></div>
+        <button class="btn-primary w-full mt-4 py-3.5 flex items-center justify-center gap-2" onclick="showAddMemberModal()">
+          <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M12 4v16m8-8H4"/></svg>
+          Add Member
+        </button>
+      </div>
+    </div>
+
+    <!-- ==================== MEMBER DETAIL ==================== -->
+    <div class="screen" id="screen-member-detail">
+      <div class="header" style="padding-bottom: 30px;">
+        <div class="flex items-center gap-3 mb-4">
+          <button onclick="showScreen('members')" class="w-9 h-9 rounded-full bg-white/20 flex items-center justify-center">
+            <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M15 19l-7-7 7-7"/></svg>
+          </button>
+          <h1 class="text-lg font-bold">Member Details</h1>
+        </div>
+        <div class="flex items-center gap-4">
+          <div class="avatar" style="width:72px;height:72px;font-size:24px;border-radius:20px" id="detail-avatar">TH</div>
+          <div>
+            <h2 class="text-xl font-bold" id="detail-name">Tigist Haile</h2>
+            <p class="text-white/80" id="detail-phone">0911 234 567</p>
+            <div class="flex gap-2 mt-2">
+              <button class="bg-white/20 rounded-lg px-3 py-1.5 text-xs font-semibold" onclick="callMember()">📞 Call</button>
+              <button class="bg-white/20 rounded-lg px-3 py-1.5 text-xs font-semibold" onclick="smsMember()">💬 SMS</button>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="px-4 -mt-4 space-y-4">
+        <div class="card p-4 grid grid-cols-3 gap-3 text-center">
+          <div>
+            <p class="text-xl font-bold" style="color:var(--text)" id="detail-paid-count">6</p>
+            <p class="text-xs" style="color:var(--muted)">Paid</p>
+          </div>
+          <div>
+            <p class="text-xl font-bold text-amber-600" id="detail-late-count">1</p>
+            <p class="text-xs" style="color:var(--muted)">Late</p>
+          </div>
+          <div>
+            <p class="text-xl font-bold" style="color:var(--primary)" id="detail-won">Yes</p>
+            <p class="text-xs" style="color:var(--muted)">Won Pot?</p>
+          </div>
+        </div>
+        <div class="card overflow-hidden">
+          <div class="px-4 py-3 border-b" style="border-color:var(--border)">
+            <h3 class="font-bold" style="color:var(--text)">Payment History</h3>
+          </div>
+          <div id="payment-history"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ==================== CALENDAR ==================== -->
+    <div class="screen" id="screen-calendar">
+      <div class="header">
+        <div class="flex items-center gap-3">
+          <button onclick="showScreen('equb-home')" class="w-9 h-9 rounded-full bg-white/20 flex items-center justify-center">
+            <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M15 19l-7-7 7-7"/></svg>
+          </button>
+          <div>
+            <h1 class="text-lg font-bold">Calendar & History</h1>
+            <p class="text-xs text-white/80" id="cal-subtitle">Ethiopian Calendar</p>
+          </div>
+        </div>
+      </div>
+      <div class="px-4 pt-4 pb-8">
+        <div class="card p-4 mb-4">
+          <div class="flex justify-between items-center mb-4">
+            <button class="w-9 h-9 rounded-full flex items-center justify-center" style="background:var(--bg)" onclick="changeMonth(-1)">‹</button>
+            <h3 class="font-bold text-lg" style="color:var(--text)" id="cal-month-label">የካቲት 2018</h3>
+            <button class="w-9 h-9 rounded-full flex items-center justify-center" style="background:var(--bg)" onclick="changeMonth(1)">›</button>
+          </div>
+          <div class="grid grid-cols-7 gap-1 mb-2 text-center">
+            <div class="text-xs font-semibold" style="color:var(--muted)">እሁድ</div>
+            <div class="text-xs font-semibold" style="color:var(--muted)">ሰኞ</div>
+            <div class="text-xs font-semibold" style="color:var(--muted)">ማክሰ</div>
+            <div class="text-xs font-semibold" style="color:var(--muted)">ረቡዕ</div>
+            <div class="text-xs font-semibold" style="color:var(--muted)">ሐሙስ</div>
+            <div class="text-xs font-semibold" style="color:var(--muted)">አርብ</div>
+            <div class="text-xs font-semibold" style="color:var(--muted)">ቅዳሜ</div>
+          </div>
+          <div class="grid grid-cols-7 gap-1" id="calendar-grid"></div>
+        </div>
+        <h3 class="font-bold mb-3" style="color:var(--text)">All Collection History</h3>
+        <div class="space-y-2" id="collection-history"></div>
+      </div>
+    </div>
+
+    <!-- ==================== CREATE EQUB ==================== -->
+    <div class="screen" id="screen-create">
+      <div class="header">
+        <div class="flex items-center gap-3">
+          <button onclick="showScreen('selector')" class="w-9 h-9 rounded-full bg-white/20 flex items-center justify-center">
+            <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M15 19l-7-7 7-7"/></svg>
+          </button>
+          <h1 class="text-lg font-bold">Create New Equb</h1>
+        </div>
+      </div>
+      <div class="px-4 pt-5 space-y-4">
+        <div>
+          <label class="block text-sm font-medium mb-1.5" style="color:var(--text)">Equb Name</label>
+          <input type="text" id="new-name" class="w-full px-4 py-3 rounded-xl" placeholder="e.g. Merkato Traders">
+        </div>
+        <div>
+          <label class="block text-sm font-medium mb-1.5" style="color:var(--text)">Contribution Amount (ETB)</label>
+          <input type="number" id="new-amount" class="w-full px-4 py-3 rounded-xl" placeholder="500">
+        </div>
+        <div>
+          <label class="block text-sm font-medium mb-1.5" style="color:var(--text)">Number of Members</label>
+          <input type="number" id="new-members" class="w-full px-4 py-3 rounded-xl" placeholder="12">
+        </div>
+        <div>
+          <label class="block text-sm font-medium mb-1.5" style="color:var(--text)">Cycle Type</label>
+          <div class="grid grid-cols-2 gap-2">
+            <button class="cycle-btn py-3 rounded-xl border-2 font-semibold text-sm" data-cycle="daily" onclick="selectCycle(this)">Daily</button>
+            <button class="cycle-btn py-3 rounded-xl border-2 font-semibold text-sm" data-cycle="weekly" onclick="selectCycle(this)">Weekly</button>
+            <button class="cycle-btn py-3 rounded-xl border-2 font-semibold text-sm" data-cycle="biweekly" onclick="selectCycle(this)">Every 2 Weeks</button>
+            <button class="cycle-btn py-3 rounded-xl border-2 font-semibold text-sm" data-cycle="monthly" onclick="selectCycle(this)">Monthly</button>
+          </div>
+        </div>
+        <div id="weekday-select" class="hidden">
+          <label class="block text-sm font-medium mb-1.5" style="color:var(--text)">Weekly Day</label>
+          <div class="grid grid-cols-2 gap-2">
+            <button class="day-btn py-3 rounded-xl border-2 font-semibold text-sm" onclick="selectDay(this)">ቅዳሜ (Sat)</button>
+            <button class="day-btn py-3 rounded-xl border-2 font-semibold text-sm" onclick="selectDay(this)">እሁድ (Sun)</button>
+          </div>
+        </div>
+        <div>
+          <label class="block text-sm font-medium mb-1.5" style="color:var(--text)">Default Late Fee (ETB)</label>
+          <input type="number" id="new-latefee" class="w-full px-4 py-3 rounded-xl" placeholder="50" value="50">
+        </div>
+        <button class="btn-primary w-full py-4 text-base mt-2" onclick="createEqub()">Create Equb</button>
+      </div>
+    </div>
+
+    <!-- ==================== SETTINGS ==================== -->
+    <div class="screen" id="screen-settings">
+      <div class="header">
+        <div class="flex items-center gap-3">
+          <button onclick="showScreen('selector')" class="w-9 h-9 rounded-full bg-white/20 flex items-center justify-center">
+            <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M15 19l-7-7 7-7"/></svg>
+          </button>
+          <h1 class="text-lg font-bold">Settings & Backup</h1>
+        </div>
+      </div>
+      <div class="px-4 pt-5 space-y-4 pb-8">
+        
+        <!-- Account -->
+        <div class="card p-4">
+          <h3 class="font-bold mb-3" style="color:var(--text)">Account & Sync</h3>
+          <div id="account-info" class="mb-3 text-sm" style="color:var(--muted)">Not logged in</div>
+          <div class="flex gap-2">
+            <button class="btn-primary flex-1 text-sm py-2.5" id="btn-login" onclick="handleGoogleLogin()">Login with Google</button>
+            <button class="btn-secondary flex-1 text-sm py-2.5" id="btn-logout" onclick="handleLogout()" style="display:none">Logout</button>
+          </div>
+          <button class="btn-secondary w-full mt-2 text-sm py-2.5" onclick="manualBackup()" id="btn-backup" style="display:none">
+            ☁️ Backup Now to Drive
+          </button>
+          <button class="btn-secondary w-full mt-2 text-sm py-2.5" onclick="restoreFromDrive()" id="btn-restore" style="display:none">
+            ⬇️ Restore from Drive
+          </button>
+        </div>
+
+        <!-- Export -->
+        <div class="card p-4">
+          <h3 class="font-bold mb-3" style="color:var(--text)">Export Data</h3>
+          <p class="text-xs mb-3" style="color:var(--muted)">Download a full backup of the current Equb or all data</p>
+          <div class="grid grid-cols-2 gap-2">
+            <button class="btn-secondary text-sm py-2.5" onclick="exportCSV(false)">CSV (Current)</button>
+            <button class="btn-secondary text-sm py-2.5" onclick="exportPDF(false)">PDF (Current)</button>
+            <button class="btn-secondary text-sm py-2.5" onclick="exportCSV(true)">CSV (All)</button>
+            <button class="btn-secondary text-sm py-2.5" onclick="exportPDF(true)">PDF (All)</button>
+          </div>
+        </div>
+
+        <!-- Theme -->
+        <div class="card p-4">
+          <h3 class="font-bold mb-3" style="color:var(--text)">Theme</h3>
+          <div class="flex gap-3 flex-wrap">
+            <div class="theme-swatch active" style="background:linear-gradient(135deg,#0f766e,#14b8a6)" onclick="setTheme('default')"></div>
+            <div class="theme-swatch" style="background:linear-gradient(135deg,#2563eb,#3b82f6)" onclick="setTheme('blue')"></div>
+            <div class="theme-swatch" style="background:linear-gradient(135deg,#7c3aed,#8b5cf6)" onclick="setTheme('purple')"></div>
+            <div class="theme-swatch" style="background:linear-gradient(135deg,#e11d48,#f43f5e)" onclick="setTheme('rose')"></div>
+            <div class="theme-swatch" style="background:#1e293b;border:2px solid #475569" onclick="setTheme('dark')"></div>
+          </div>
+        </div>
+
+        <!-- Language -->
+        <div class="card p-4">
+          <h3 class="font-bold mb-3" style="color:var(--text)">Language</h3>
+          <div class="flex gap-2">
+            <button class="flex-1 py-3 rounded-xl border-2 font-semibold lang-btn" data-lang="en" onclick="setLang('en')">English</button>
+            <button class="flex-1 py-3 rounded-xl border-2 font-semibold lang-btn" data-lang="am" onclick="setLang('am')">አማርኛ</button>
+          </div>
+        </div>
+
+        <!-- Danger -->
+        <div class="card p-4">
+          <h3 class="font-bold mb-3 text-red-600">Danger Zone</h3>
+          <button class="btn-secondary w-full text-sm py-2.5 text-red-600 border-red-200" onclick="clearAllData()">Clear All Local Data</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Bottom Nav -->
+    <div class="bottom-nav" id="bottom-nav">
+      <div class="nav-item active" onclick="showScreen('equb-home')" data-screen="equb-home">
+        <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/></svg>
+        <span>Home</span>
+      </div>
+      <div class="nav-item" onclick="showScreen('members')" data-screen="members">
+        <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2M9 7a4 4 0 100 8 4 4 0 000-8z"/></svg>
+        <span>Members</span>
+      </div>
+      <div class="nav-item" onclick="showScreen('calendar')" data-screen="calendar">
+        <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
+        <span>Calendar</span>
+      </div>
+      <div class="nav-item" onclick="showScreen('settings')" data-screen="settings">
+        <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/><path d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+        <span>Settings</span>
+      </div>
+    </div>
+
+    <!-- Modals -->
+    <div class="modal-overlay" id="lottery-modal">
+      <div class="modal">
+        <div class="w-12 h-1.5 bg-slate-300 rounded-full mx-auto mb-5"></div>
+        <h2 class="text-xl font-bold text-center mb-1" style="color:var(--text)">Select Winner</h2>
+        <p class="text-center text-sm mb-5" style="color:var(--muted)">Only members who haven't received the pot</p>
+        <button class="w-full py-4 rounded-2xl text-white font-bold text-lg flex items-center justify-center gap-3 mb-4" style="background:linear-gradient(135deg,#7c3aed,#a855f7)" onclick="runLottery()">
+          🎲 Randomize
+        </button>
+        <div class="max-h-40 overflow-y-auto space-y-1 mb-4" id="eligible-list"></div>
+        <button class="w-full py-3 font-medium" style="color:var(--muted)" onclick="closeModal('lottery-modal')">Cancel</button>
+      </div>
+    </div>
+
+    <div class="modal-overlay" id="winner-modal">
+      <div class="modal text-center">
+        <div class="w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-4" style="background:linear-gradient(135deg,#7c3aed,#a855f7)">
+          <span class="text-3xl">🎉</span>
+        </div>
+        <h2 class="text-xl font-bold mb-1" style="color:var(--text)">Winner Selected!</h2>
+        <p class="text-3xl font-extrabold my-3" style="color:#7c3aed" id="winner-name">—</p>
+        <p class="mb-6" style="color:var(--muted)" id="winner-amount">will receive the pot</p>
+        <button class="btn-primary w-full py-3.5" onclick="confirmWinner()">Confirm & Record</button>
+      </div>
+    </div>
+
+    <div class="modal-overlay" id="sms-modal">
+      <div class="modal">
+        <div class="w-12 h-1.5 bg-slate-300 rounded-full mx-auto mb-5"></div>
+        <h2 class="text-lg font-bold text-center mb-4" style="color:var(--text)">Send Reminder</h2>
+        <div class="rounded-2xl p-4 mb-4" style="background:var(--bg)">
+          <p class="text-sm mb-1" style="color:var(--muted)">To</p>
+          <p class="font-semibold" style="color:var(--text)" id="sms-to"></p>
+          <p class="text-sm mt-3 mb-1" style="color:var(--muted)">Message (editable)</p>
+          <textarea id="sms-body" rows="3" class="w-full rounded-xl p-3 text-sm" style="background:var(--card);border:1px solid var(--border);color:var(--text)"></textarea>
+        </div>
+        <div class="grid grid-cols-2 gap-3">
+          <button class="btn-secondary" onclick="closeModal('sms-modal')">📞 Call</button>
+          <button class="btn-primary" onclick="openNativeSMS()">Open SMS App</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="modal-overlay" id="add-member-modal">
+      <div class="modal">
+        <div class="w-12 h-1.5 bg-slate-300 rounded-full mx-auto mb-5"></div>
+        <h2 class="text-lg font-bold text-center mb-4" style="color:var(--text)">Add Member</h2>
+        <div class="space-y-3">
+          <input type="text" id="add-name" class="w-full px-4 py-3 rounded-xl" placeholder="Full Name">
+          <input type="tel" id="add-phone" class="w-full px-4 py-3 rounded-xl" placeholder="Phone Number">
+        </div>
+        <button class="btn-primary w-full mt-4 py-3" onclick="addMember()">Add Member</button>
+        <button class="w-full py-3 mt-2 font-medium" style="color:var(--muted)" onclick="closeModal('add-member-modal')">Cancel</button>
+      </div>
+    </div>
+
+  </div>
+
+  <script>
+    // =====================================================
+    // CONFIG – REPLACE THIS WITH YOUR GOOGLE CLIENT ID
+    // =====================================================
+    const GOOGLE_CLIENT_ID = 'YOUR_GOOGLE_CLIENT_ID.apps.googleusercontent.com';
+    // How to get it: See README.md
+    // =====================================================
+
+    const DRIVE_FILE_NAME = 'equb-admin-backup.json';
+    const SCOPES = 'https://www.googleapis.com/auth/drive.file https://www.googleapis.com/auth/userinfo.profile https://www.googleapis.com/auth/userinfo.email';
+
+    // ========== STATE ==========
+    let db = null;
+    let currentUser = null;
+    let accessToken = null;
+    let driveFileId = null;
+    let currentEqubId = null;
+    let currentMember = null;
+    let selectedWinner = null;
+    let calMonthIndex = 5;
+    let selectedCycle = 'weekly';
+    let selectedDay = 'Sunday';
+
+    const ethMonths = ['መስከረም','ጥቅምት','ኅዳር','ታኅሣሥ','ጥር','የካቲት','መጋቢት','ሚያዝያ','ግንቦት','ሰኔ','ሐምሌ','ነሐሴ','ጳጉሜ'];
+
+    // Default demo data (only used if no saved data)
+    let appData = {
+      equbs: {},
+      settings: { theme: 'default', lang: 'en', lateFee: 50, smsTemplate: 'Selam [Name], please pay your Equb contribution of [Amount] Birr for cycle [Cycle]. Thank you.' }
+    };
+
+    // ========== INDEXEDDB ==========
+    async function initDB() {
+      return new Promise((resolve, reject) => {
+        const request = indexedDB.open('EqubAdminDB', 1);
+        request.onupgradeneeded = (e) => {
+          const database = e.target.result;
+          if (!database.objectStoreNames.contains('data')) {
+            database.createObjectStore('data');
+          }
+        };
+        request.onsuccess = (e) => {
+          db = e.target.result;
+          resolve();
+        };
+        request.onerror = () => reject(request.error);
+      });
+    }
+
+    async function saveLocal() {
+      if (!db) return;
+      return new Promise((resolve) => {
+        const tx = db.transaction('data', 'readwrite');
+        tx.objectStore('data').put(appData, 'main');
+        tx.oncomplete = () => resolve();
+      });
+    }
+
+    async function loadLocal() {
+      if (!db) return null;
+      return new Promise((resolve) => {
+        const tx = db.transaction('data', 'readonly');
+        const req = tx.objectStore('data').get('main');
+        req.onsuccess = () => resolve(req.result || null);
+      });
+    }
+
+    // ========== GOOGLE AUTH & DRIVE ==========
+    let tokenClient = null;
+    let gapiInited = false;
+    let gisInited = false;
+
+    function gapiLoaded() {
+      gapi.load('client', async () => {
+        await gapi.client.init({
+          discoveryDocs: ['https://www.googleapis.com/discovery/v1/apis/drive/v3/rest']
+        });
+        gapiInited = true;
+      });
+    }
+
+    function gisLoaded() {
+      if (GOOGLE_CLIENT_ID.includes('YOUR_GOOGLE')) {
+        console.warn('Google Client ID not set. Login will not work until you replace it.');
+        return;
+      }
+      tokenClient = google.accounts.oauth2.initTokenClient({
+        client_id: GOOGLE_CLIENT_ID,
+        scope: SCOPES,
+        callback: '', // defined later
+      });
+      gisInited = true;
+    }
+
+    // Load Google scripts
+    window.addEventListener('load', () => {
+      // gapi
+      const gapiScript = document.createElement('script');
+      gapiScript.src = 'https://apis.google.com/js/api.js';
+      gapiScript.onload = gapiLoaded;
+      document.body.appendChild(gapiScript);
+
+      // GIS already loaded via head
+      if (window.google) gisLoaded();
+      else {
+        const check = setInterval(() => {
+          if (window.google && google.accounts) {
+            clearInterval(check);
+            gisLoaded();
+          }
+        }, 200);
+      }
+    });
+
+    async function handleGoogleLogin() {
+      if (GOOGLE_CLIENT_ID.includes('YOUR_GOOGLE')) {
+        showToast('Please set your Google Client ID first (see README)');
+        return;
+      }
+      if (!tokenClient) {
+        showToast('Google services still loading...');
+        return;
+      }
+
+      tokenClient.callback = async (resp) => {
+        if (resp.error) {
+          showToast('Login failed: ' + resp.error);
+          return;
+        }
+        accessToken = resp.access_token;
+        gapi.client.setToken({ access_token: accessToken });
+
+        // Get user info
+        try {
+          const userInfo = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
+            headers: { Authorization: 'Bearer ' + accessToken }
+          }).then(r => r.json());
+
+          currentUser = {
+            name: userInfo.name,
+            email: userInfo.email,
+            picture: userInfo.picture
+          };
+
+          document.getElementById('user-name').textContent = currentUser.name;
+          document.getElementById('user-greeting').textContent = 'Welcome back';
+          document.getElementById('user-avatar').innerHTML = currentUser.picture
+            ? `<img src="${currentUser.picture}" class="w-full h-full object-cover">`
+            : currentUser.name.charAt(0);
+
+          document.getElementById('account-info').textContent = currentUser.email;
+          document.getElementById('btn-login').style.display = 'none';
+          document.getElementById('btn-logout').style.display = 'block';
+          document.getElementById('btn-backup').style.display = 'block';
+          document.getElementById('btn-restore').style.display = 'block';
+          document.getElementById('sync-status').textContent = 'Cloud';
+          document.getElementById('sync-status').classList.add('synced');
+
+          // Try to restore from Drive
+          await findOrCreateDriveFile();
+          await restoreFromDrive(true); // silent
+
+          showToast('Logged in & synced with Google Drive');
+          showScreen('selector');
+          renderEqubList();
+        } catch (err) {
+          console.error(err);
+          showToast('Login succeeded but profile fetch failed');
+          showScreen('selector');
+        }
+      };
+
+      tokenClient.requestAccessToken({ prompt: 'consent' });
+    }
+
+    function handleLogout() {
+      if (accessToken) {
+        google.accounts.oauth2.revoke(accessToken);
+      }
+      accessToken = null;
+      currentUser = null;
+      driveFileId = null;
+      gapi.client.setToken(null);
+
+      document.getElementById('user-name').textContent = 'User';
+      document.getElementById('user-greeting').textContent = 'Welcome';
+      document.getElementById('user-avatar').textContent = 'U';
+      document.getElementById('account-info').textContent = 'Not logged in';
+      document.getElementById('btn-login').style.display = 'block';
+      document.getElementById('btn-logout').style.display = 'none';
+      document.getElementById('btn-backup').style.display = 'none';
+      document.getElementById('btn-restore').style.display = 'none';
+      document.getElementById('sync-status').textContent = 'Local';
+      document.getElementById('sync-status').classList.remove('synced');
+
+      showToast('Logged out. Data remains on this device.');
+    }
+
+    async function findOrCreateDriveFile() {
+      try {
+        const res = await gapi.client.drive.files.list({
+          q: `name='${DRIVE_FILE_NAME}' and trashed=false`,
+          spaces: 'drive',
+          fields: 'files(id, name)'
+        });
+        if (res.result.files && res.result.files.length > 0) {
+          driveFileId = res.result.files[0].id;
+        } else {
+          // Create new file
+          const createRes = await gapi.client.drive.files.create({
+            resource: {
+              name: DRIVE_FILE_NAME,
+              mimeType: 'application/json'
+            },
+            fields: 'id'
+          });
+          driveFileId = createRes.result.id;
+          // Upload initial content
+          await uploadToDrive();
+        }
+      } catch (err) {
+        console.error('Drive file error', err);
+      }
+    }
+
+    async function uploadToDrive() {
+      if (!accessToken || !driveFileId) return;
+      try {
+        const content = JSON.stringify(appData, null, 2);
+        await fetch(`https://www.googleapis.com/upload/drive/v3/files/${driveFileId}?uploadType=media`, {
+          method: 'PATCH',
+          headers: {
+            'Authorization': 'Bearer ' + accessToken,
+            'Content-Type': 'application/json'
+          },
+          body: content
+        });
+        document.getElementById('sync-status').textContent = 'Synced';
+        document.getElementById('sync-status').classList.add('synced');
+      } catch (err) {
+        console.error('Upload failed', err);
+        showToast('Backup failed. Check connection.');
+      }
+    }
+
+    async function manualBackup() {
+      await saveLocal();
+      await uploadToDrive();
+      showToast('Backed up to your Google Drive');
+    }
+
+    async function restoreFromDrive(silent = false) {
+      if (!accessToken || !driveFileId) {
+        if (!silent) showToast('Not logged in or no backup found');
+        return;
+      }
+      try {
+        const res = await fetch(`https://www.googleapis.com/drive/v3/files/${driveFileId}?alt=media`, {
+          headers: { Authorization: 'Bearer ' + accessToken }
+        });
+        if (!res.ok) throw new Error('Download failed');
+        const data = await res.json();
+        if (data && data.equbs) {
+          appData = data;
+          await saveLocal();
+          renderEqubList();
+          if (!silent) showToast('Restored from Google Drive');
+        }
+      } catch (err) {
+        console.error(err);
+        if (!silent) showToast('Restore failed');
+      }
+    }
+
+    function continueWithoutLogin() {
+      showScreen('selector');
+      renderEqubList();
+    }
+
+    // ========== CORE APP ==========
+    async function initApp() {
+      await initDB();
+      const saved = await loadLocal();
+      if (saved) {
+        appData = saved;
+      } else {
+        // Create demo data for first run
+        createDemoData();
+        await saveLocal();
+      }
+      renderEqubList();
+    }
+
+    function createDemoData() {
+      appData.equbs['merkato'] = {
+        id: 'merkato',
+        name: 'Merkato Traders',
+        amount: 500,
+        cycleType: 'weekly',
+        cycleDay: 'Sunday',
+        totalMembers: 12,
+        currentCycle: 7,
+        lateFee: 50,
+        members: [
+          { id: 1, name: 'Tigist Haile', phone: '0911234567', status: 'paid', won: true, paidCount: 6, lateCount: 0, history: [] },
+          { id: 2, name: 'Yonas Bekele', phone: '0922345678', status: 'paid', won: true, paidCount: 7, lateCount: 0, history: [] },
+          { id: 3, name: 'Meron Kassahun', phone: '0933456789', status: 'pending', won: false, paidCount: 5, lateCount: 1, history: [] },
+          { id: 4, name: 'Daniel Abebe', phone: '0944567890', status: 'pending', won: false, paidCount: 6, lateCount: 0, history: [] },
+          { id: 5, name: 'Sara Mohammed', phone: '0955678901', status: 'late', won: false, paidCount: 4, lateCount: 2, history: [] },
+          { id: 6, name: 'Helen Tadesse', phone: '0966789012', status: 'paid', won: true, paidCount: 6, lateCount: 0, history: [] },
+        ],
+        collections: [
+          { cycle: 6, date: 'የካቲት 05, 2018', collected: 6000, paid: 12, total: 12, winner: 'Tigist Haile' },
+          { cycle: 5, date: 'ጥር 28, 2018', collected: 6000, paid: 12, total: 12, winner: 'Yonas Bekele' },
+        ]
+      };
+    }
+
+    // ========== UI HELPERS ==========
+    function showScreen(id) {
+      document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+      document.getElementById('screen-' + id).classList.add('active');
+
+      const nav = document.getElementById('bottom-nav');
+      const inside = ['equb-home','members','calendar','member-detail','settings'].includes(id);
+      nav.classList.toggle('show', inside);
+
+      document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+      const navItem = document.querySelector(`.nav-item[data-screen="${id}"]`);
+      if (navItem) navItem.classList.add('active');
+
+      if (id === 'members' || id === 'equb-home') renderMembers();
+      if (id === 'calendar') { renderCalendar(); renderCollectionHistory(); }
+      if (id === 'selector') renderEqubList();
+    }
+
+    function showToast(msg) {
+      const t = document.getElementById('toast');
+      t.textContent = msg;
+      t.classList.add('show');
+      setTimeout(() => t.classList.remove('show'), 2500);
+    }
+
+    function closeModal(id) {
+      document.getElementById(id).classList.remove('show');
+    }
+
+    // ========== EQUB LIST ==========
+    function renderEqubList() {
+      const list = document.getElementById('equb-list');
+      const ids = Object.keys(appData.equbs);
+      if (ids.length === 0) {
+        list.innerHTML = `<div class="card p-8 text-center" style="color:var(--muted)">No Equbs yet.<br>Create your first one!</div>`;
+        return;
+      }
+      list.innerHTML = ids.map(id => {
+        const eq = appData.equbs[id];
+        const paid = eq.members.filter(m => m.status === 'paid').length;
+        const total = eq.members.length || eq.totalMembers;
+        const pots = eq.members.filter(m => m.won).length;
+        return `
+          <div class="card p-4 cursor-pointer active:scale-[0.98] transition" onclick="openEqub('${id}')">
+            <div class="flex items-start gap-3">
+              <div class="w-12 h-12 rounded-2xl flex items-center justify-center text-white font-bold text-lg" style="background:linear-gradient(135deg,var(--primary),var(--primary-light))">${eq.name.charAt(0)}</div>
+              <div class="flex-1">
+                <div class="flex justify-between">
+                  <div>
+                    <h3 class="font-bold text-lg" style="color:var(--text)">${eq.name}</h3>
+                    <p class="text-sm" style="color:var(--muted)">${eq.cycleType} • ${eq.amount} ETB</p>
+                  </div>
+                  <span class="text-xs font-bold px-2.5 py-1 rounded-full" style="background:color-mix(in srgb,var(--primary) 15%,transparent);color:var(--primary)">${eq.currentCycle}/${total}</span>
+                </div>
+                <div class="mt-2 text-sm" style="color:var(--muted)">${paid}/${total} paid • ${pots} pots given</div>
+                <div class="mt-2 h-1.5 rounded-full overflow-hidden" style="background:var(--border)">
+                  <div class="h-full rounded-full" style="width:${total? (paid/total*100):0}%;background:linear-gradient(90deg,var(--primary),var(--primary-light))"></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    function openEqub(id) {
+      currentEqubId = id;
+      const eq = appData.equbs[id];
+      document.getElementById('equb-icon').textContent = eq.name.charAt(0);
+      document.getElementById('equb-name').textContent = eq.name;
+      document.getElementById('equb-meta').textContent = `${eq.cycleType} • ${eq.amount} ETB`;
+      document.getElementById('stat-cycle').textContent = `${eq.currentCycle}/${eq.members.length || eq.totalMembers}`;
+      document.getElementById('stat-pots').textContent = eq.members.filter(m => m.won).length;
+      document.getElementById('stat-paid').textContent = `${eq.members.filter(m => m.status==='paid').length}/${eq.members.length}`;
+      document.getElementById('members-subtitle').textContent = `${eq.members.length} members`;
+      showScreen('equb-home');
+    }
+
+    // ========== MEMBERS ==========
+    function renderMembers() {
+      if (!currentEqubId) return;
+      const eq = appData.equbs[currentEqubId];
+      const members = eq.members || [];
+
+      const quick = document.getElementById('quick-members');
+      if (quick) {
+        quick.innerHTML = members.slice(0, 5).map(m => `
+          <div class="flex items-center gap-3 py-2.5 border-b last:border-0" style="border-color:var(--border)" onclick="openMemberDetail(${m.id})">
+            <div class="avatar" style="width:36px;height:36px;font-size:13px;border-radius:10px">${m.name.split(' ').map(n=>n[0]).join('').slice(0,2)}</div>
+            <div class="flex-1 min-w-0"><p class="font-medium text-sm truncate" style="color:var(--text)">${m.name}</p></div>
+            <span class="text-xs font-semibold px-2 py-0.5 rounded-full ${m.status==='paid'?'bg-emerald-100 text-emerald-700':m.status==='late'?'bg-red-100 text-red-600':'bg-amber-100 text-amber-700'}">${m.status}</span>
+            <button class="tick-btn ${m.status==='paid'?'paid':''}" onclick="event.stopPropagation();togglePaid(${m.id})">${m.status==='paid'?'✓':''}</button>
+          </div>
+        `).join('');
+      }
+
+      const full = document.getElementById('full-members-list');
+      if (full) {
+        full.innerHTML = members.map(m => `
+          <div class="member-row" onclick="openMemberDetail(${m.id})">
+            <div class="avatar">${m.name.split(' ').map(n=>n[0]).join('').slice(0,2)}</div>
+            <div class="flex-1 ml-3 min-w-0">
+              <p class="font-semibold truncate" style="color:var(--text)">${m.name}</p>
+              <p class="text-xs" style="color:var(--muted)">${m.phone}</p>
+            </div>
+            <div class="flex items-center gap-2">
+              <span class="text-xs font-semibold px-2 py-1 rounded-full ${m.status==='paid'?'bg-emerald-100 text-emerald-700':m.status==='late'?'bg-red-100 text-red-600':'bg-amber-100 text-amber-700'}">${m.status}</span>
+              <button class="tick-btn ${m.status==='paid'?'paid':''}" onclick="event.stopPropagation();togglePaid(${m.id})">${m.status==='paid'?'✓':''}</button>
+            </div>
+          </div>
+        `).join('');
+      }
+    }
+
+    async function togglePaid(id) {
+      const m = appData.equbs[currentEqubId].members.find(x => x.id === id);
+      if (!m) return;
+      m.status = m.status === 'paid' ? 'pending' : 'paid';
+      if (m.status === 'paid') m.paidCount = (m.paidCount || 0) + 1;
+      await saveLocal();
+      if (accessToken) uploadToDrive(); // auto backup
+      renderMembers();
+      showToast(m.status === 'paid' ? m.name.split(' ')[0] + ' marked Paid' : 'Unmarked');
+    }
+
+    function openMemberDetail(id) {
+      const m = appData.equbs[currentEqubId].members.find(x => x.id === id);
+      if (!m) return;
+      currentMember = m;
+      document.getElementById('detail-avatar').textContent = m.name.split(' ').map(n=>n[0]).join('').slice(0,2);
+      document.getElementById('detail-name').textContent = m.name;
+      document.getElementById('detail-phone').textContent = m.phone;
+      document.getElementById('detail-paid-count').textContent = m.paidCount || 0;
+      document.getElementById('detail-late-count').textContent = m.lateCount || 0;
+      document.getElementById('detail-won').textContent = m.won ? 'Yes' : 'No';
+      document.getElementById('payment-history').innerHTML = (m.history && m.history.length)
+        ? m.history.map(h => `<div class="px-4 py-3 border-b" style="border-color:var(--border)"><div class="flex justify-between"><span>Cycle ${h.cycle}</span><span>${h.amount} ETB</span></div></div>`).join('')
+        : `<div class="px-4 py-8 text-center text-sm" style="color:var(--muted)">No history yet</div>`;
+      showScreen('member-detail');
+    }
+
+    function showAddMemberModal() {
+      document.getElementById('add-name').value = '';
+      document.getElementById('add-phone').value = '';
+      document.getElementById('add-member-modal').classList.add('show');
+    }
+
+    async function addMember() {
+      const name = document.getElementById('add-name').value.trim();
+      const phone = document.getElementById('add-phone').value.trim();
+      if (!name || !phone) { showToast('Name and phone required'); return; }
+      const eq = appData.equbs[currentEqubId];
+      const newId = Date.now();
+      eq.members.push({
+        id: newId, name, phone, status: 'pending', won: false,
+        paidCount: 0, lateCount: 0, history: []
+      });
+      await saveLocal();
+      if (accessToken) uploadToDrive();
+      closeModal('add-member-modal');
+      renderMembers();
+      showToast(name + ' added');
+    }
+
+    // ========== LOTTERY ==========
+    function showLotteryModal() {
+      const eq = appData.equbs[currentEqubId];
+      const eligible = eq.members.filter(m => !m.won);
+      document.getElementById('eligible-list').innerHTML = eligible.map(m => `
+        <button class="w-full text-left px-4 py-3 rounded-xl font-medium flex items-center gap-3" style="color:var(--text)" onclick="selectWinner('${m.name}', ${m.id})">
+          <div class="w-9 h-9 rounded-lg flex items-center justify-center font-bold text-sm text-white" style="background:var(--primary)">${m.name.split(' ').map(n=>n[0]).join('').slice(0,2)}</div>
+          ${m.name}
+        </button>
+      `).join('') || '<p class="text-center text-sm" style="color:var(--muted)">No eligible members left</p>';
+      document.getElementById('lottery-modal').classList.add('show');
+    }
+
+    function runLottery() {
+      const eq = appData.equbs[currentEqubId];
+      const eligible = eq.members.filter(m => !m.won);
+      if (eligible.length === 0) { showToast('No eligible members'); return; }
+      const winner = eligible[Math.floor(Math.random() * eligible.length)];
+      selectWinner(winner.name, winner.id);
+    }
+
+    function selectWinner(name, id) {
+      selectedWinner = { name, id };
+      closeModal('lottery-modal');
+      document.getElementById('winner-name').textContent = name;
+      const eq = appData.equbs[currentEqubId];
+      document.getElementById('winner-amount').textContent = `will receive ${eq.amount * eq.members.length} ETB`;
+      document.getElementById('winner-modal').classList.add('show');
+    }
+
+    async function confirmWinner() {
+      if (!selectedWinner) return;
+      const eq = appData.equbs[currentEqubId];
+      const m = eq.members.find(x => x.id === selectedWinner.id);
+      if (m) {
+        m.won = true;
+        eq.collections = eq.collections || [];
+        eq.collections.unshift({
+          cycle: eq.currentCycle,
+          date: new Date().toLocaleDateString('en-ET'),
+          collected: eq.amount * eq.members.filter(x => x.status === 'paid').length,
+          paid: eq.members.filter(x => x.status === 'paid').length,
+          total: eq.members.length,
+          winner: m.name
+        });
+        eq.currentCycle += 1;
+        // Reset statuses for next cycle
+        eq.members.forEach(mem => { if (!mem.won) mem.status = 'pending'; });
+      }
+      await saveLocal();
+      if (accessToken) uploadToDrive();
+      closeModal('winner-modal');
+      showToast('Winner recorded!');
+      openEqub(currentEqubId);
+    }
+
+    // ========== CREATE EQUB ==========
+    function selectCycle(btn) {
+      document.querySelectorAll('.cycle-btn').forEach(b => {
+        b.style.borderColor = 'var(--border)';
+        b.style.background = 'transparent';
+        b.style.color = 'var(--muted)';
+      });
+      btn.style.borderColor = 'var(--primary)';
+      btn.style.background = 'color-mix(in srgb, var(--primary) 12%, transparent)';
+      btn.style.color = 'var(--primary)';
+      selectedCycle = btn.dataset.cycle;
+      document.getElementById('weekday-select').classList.toggle('hidden', selectedCycle !== 'weekly');
+    }
+
+    function selectDay(btn) {
+      document.querySelectorAll('.day-btn').forEach(b => {
+        b.style.borderColor = 'var(--border)';
+        b.style.background = 'transparent';
+        b.style.color = 'var(--muted)';
+      });
+      btn.style.borderColor = 'var(--primary)';
+      btn.style.background = 'color-mix(in srgb, var(--primary) 12%, transparent)';
+      btn.style.color = 'var(--primary)';
+      selectedDay = btn.textContent.includes('Sat') ? 'Saturday' : 'Sunday';
+    }
+
+    async function createEqub() {
+      const name = document.getElementById('new-name').value.trim();
+      const amount = parseInt(document.getElementById('new-amount').value) || 0;
+      const totalMembers = parseInt(document.getElementById('new-members').value) || 0;
+      const lateFee = parseInt(document.getElementById('new-latefee').value) || 50;
+      if (!name || !amount || !totalMembers) {
+        showToast('Please fill all required fields');
+        return;
+      }
+      const id = 'eq_' + Date.now();
+      appData.equbs[id] = {
+        id, name, amount, cycleType: selectedCycle, cycleDay: selectedDay,
+        totalMembers, currentCycle: 1, lateFee,
+        members: [], collections: []
+      };
+      await saveLocal();
+      if (accessToken) uploadToDrive();
+      showToast('Equb created!');
+      showScreen('selector');
+      renderEqubList();
+    }
+
+    // ========== SMS ==========
+    function smsMember() {
+      if (!currentMember) return;
+      const eq = appData.equbs[currentEqubId];
+      const template = (appData.settings.smsTemplate || 'Selam [Name], please pay [Amount] Birr for cycle [Cycle].')
+        .replace('[Name]', currentMember.name.split(' ')[0])
+        .replace('[Amount]', eq.amount)
+        .replace('[Cycle]', eq.currentCycle);
+      document.getElementById('sms-to').textContent = currentMember.phone;
+      document.getElementById('sms-body').value = template;
+      document.getElementById('sms-modal').classList.add('show');
+    }
+
+    function openNativeSMS() {
+      const phone = document.getElementById('sms-to').textContent.replace(/\s/g, '');
+      const body = encodeURIComponent(document.getElementById('sms-body').value);
+      window.open(`sms:${phone}?body=${body}`, '_self');
+      closeModal('sms-modal');
+    }
+
+    function callMember() {
+      if (currentMember) window.open(`tel:${currentMember.phone}`, '_self');
+    }
+
+    function remindAllUnpaid() {
+      const unpaid = appData.equbs[currentEqubId].members.filter(m => m.status !== 'paid');
+      if (unpaid.length === 0) { showToast('Everyone has paid!'); return; }
+      showToast(`Ready to remind ${unpaid.length} members`);
+      // Could open first one
+      currentMember = unpaid[0];
+      smsMember();
+    }
+
+    // ========== CALENDAR ==========
+    function renderCalendar() {
+      document.getElementById('cal-month-label').textContent = ethMonths[calMonthIndex] + ' 2018';
+      const grid = document.getElementById('calendar-grid');
+      const daysInMonth = calMonthIndex === 12 ? 5 : 30;
+      const startOffset = 5;
+      let html = '';
+      for (let i = 0; i < startOffset; i++) html += `<div class="cal-day other-month">${30-startOffset+i+1}</div>`;
+      for (let d = 1; d <= daysInMonth; d++) {
+        const isToday = (calMonthIndex === 5 && d === 12);
+        const hasEvent = [5,12,19,26].includes(d) && calMonthIndex === 5;
+        html += `<div class="cal-day ${isToday?'today':''} ${hasEvent?'has-event':''}">${d}</div>`;
+      }
+      grid.innerHTML = html;
+    }
+
+    function changeMonth(dir) {
+      calMonthIndex = (calMonthIndex + dir + 13) % 13;
+      renderCalendar();
+    }
+
+    function renderCollectionHistory() {
+      const list = document.getElementById('collection-history');
+      const cols = (appData.equbs[currentEqubId] || {}).collections || [];
+      if (!cols.length) {
+        list.innerHTML = `<div class="card p-6 text-center" style="color:var(--muted)">No collection history yet</div>`;
+        return;
+      }
+      list.innerHTML = cols.map(c => `
+        <div class="card p-4">
+          <div class="flex justify-between items-start mb-2">
+            <div>
+              <p class="font-bold" style="color:var(--text)">Cycle ${c.cycle}</p>
+              <p class="text-sm" style="color:var(--muted)">${c.date}</p>
+            </div>
+            <span class="text-xs font-bold px-2.5 py-1 rounded-full ${c.paid===c.total?'bg-emerald-100 text-emerald-700':'bg-amber-100 text-amber-700'}">${c.paid}/${c.total} paid</span>
+          </div>
+          <div class="flex justify-between text-sm" style="color:var(--muted)">
+            <span>Collected: <b style="color:var(--text)">${(c.collected||0).toLocaleString()} ETB</b></span>
+            <span>Winner: <b style="color:var(--primary)">${c.winner || '—'}</b></span>
+          </div>
+        </div>
+      `).join('');
+    }
+
+    // ========== EXPORT ==========
+    function exportCSV(all = false) {
+      let csv = 'Equb,Member,Phone,Status,Won,Paid Count,Late Count\n';
+      const targets = all ? Object.values(appData.equbs) : [appData.equbs[currentEqubId]].filter(Boolean);
+      targets.forEach(eq => {
+        (eq.members || []).forEach(m => {
+          csv += `"${eq.name}","${m.name}","${m.phone}","${m.status}",${m.won},${m.paidCount||0},${m.lateCount||0}\n`;
+        });
+      });
+      downloadFile(csv, `equb-export-${Date.now()}.csv`, 'text/csv');
+      showToast('CSV downloaded');
+    }
+
+    function exportPDF(all = false) {
+      const { jsPDF } = window.jspdf;
+      const doc = new jsPDF();
+      let y = 20;
+      doc.setFontSize(16);
+      doc.text('Equb Admin Report', 20, y);
+      y += 10;
+      doc.setFontSize(10);
+      doc.text('Generated: ' + new Date().toLocaleString(), 20, y);
+      y += 15;
+
+      const targets = all ? Object.values(appData.equbs) : [appData.equbs[currentEqubId]].filter(Boolean);
+      targets.forEach(eq => {
+        if (y > 270) { doc.addPage(); y = 20; }
+        doc.setFontSize(13);
+        doc.text(eq.name + ` (${eq.amount} ETB • ${eq.cycleType})`, 20, y);
+        y += 8;
+        doc.setFontSize(10);
+        (eq.members || []).forEach(m => {
+          if (y > 280) { doc.addPage(); y = 20; }
+          doc.text(`${m.name} | ${m.phone} | ${m.status} | Won: ${m.won ? 'Yes' : 'No'}`, 25, y);
+          y += 6;
+        });
+        y += 10;
+      });
+      doc.save(`equb-report-${Date.now()}.pdf`);
+      showToast('PDF downloaded');
+    }
+
+    function downloadFile(content, filename, type) {
+      const blob = new Blob([content], { type });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename;
+      a.click();
+      URL.revokeObjectURL(url);
+    }
+
+    // ========== THEME & LANG ==========
+    function setTheme(theme) {
+      const app = document.getElementById('app');
+      if (theme === 'default') app.removeAttribute('data-theme');
+      else app.setAttribute('data-theme', theme);
+      appData.settings.theme = theme;
+      saveLocal();
+      document.querySelectorAll('.theme-swatch').forEach(s => s.classList.remove('active'));
+      event.target.classList.add('active');
+    }
+
+    function setLang(lang) {
+      appData.settings.lang = lang;
+      saveLocal();
+      // Simple demo – full i18n can be expanded
+      showToast(lang === 'am' ? 'ቋንቋ ተቀይሯል' : 'Language changed');
+    }
+
+    async function clearAllData() {
+      if (!confirm('Delete ALL local data? This cannot be undone (unless you have Drive backup).')) return;
+      appData = { equbs: {}, settings: appData.settings };
+      await saveLocal();
+      renderEqubList();
+      showToast('Local data cleared');
+      showScreen('selector');
+    }
+
+    // ========== START ==========
+    initApp().then(() => {
+      // Auto select first cycle button style
+      document.querySelectorAll('.cycle-btn')[1]?.click();
+    });
+
+    // Register Service Worker for PWA (installable on phones)
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('./sw.js')
+          .then(reg => console.log('Service Worker registered', reg.scope))
+          .catch(err => console.log('SW registration failed', err));
+      });
+    }
+  </script>
+</body>
+</html>
